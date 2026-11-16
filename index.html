@@ -239,18 +239,44 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
   var COUNT_LABELS = {
     totalDevice: 'Geräte', offlineDevice: 'Geräte offline', pendingUpdateDevice: 'Updates offen', wifiClient: 'WLAN-Clients',
     wiredClient: 'LAN-Clients', guestClient: 'Gast-Clients', wifiDevice: 'Access Points', wiredDevice: 'Switches', gatewayDevice: 'Gateways',
-    criticalNotification: 'Kritische Meldungen', wifiConfiguration: 'WLANs', wiredConfiguration: 'LAN-Netze'
+    criticalNotification: 'Kritische Meldungen', wifiConfiguration: 'WLANs', wiredConfiguration: 'LAN-Netze', lanConfiguration: 'LAN-Netze',
+    wanConfiguration: 'WAN-Anschlüsse', offlineGatewayDevice: 'Gateways offline', offlineWifiDevice: 'APs offline', offlineWiredDevice: 'Switches offline'
   };
+  var COUNT_ORDER = ['totalDevice', 'gatewayDevice', 'wifiDevice', 'wiredDevice', 'offlineDevice', 'offlineGatewayDevice', 'offlineWifiDevice', 'offlineWiredDevice',
+    'pendingUpdateDevice', 'wifiClient', 'wiredClient', 'guestClient', 'wifiConfiguration', 'lanConfiguration', 'wanConfiguration', 'criticalNotification'];
+  var DRILL = {
+    wifiClient: { kind: 'wireless', title: 'WLAN-Clients' }, wiredClient: { kind: 'wired', title: 'LAN-Clients' }, guestClient: { kind: 'guest', title: 'Gast-Clients' },
+    totalDevice: { kind: 'devices', filter: 'all', title: 'Geräte' }, wifiDevice: { kind: 'devices', filter: 'ap', title: 'Access Points' },
+    wiredDevice: { kind: 'devices', filter: 'switch', title: 'Switches' }, gatewayDevice: { kind: 'devices', filter: 'gateway', title: 'Gateways' },
+    offlineDevice: { kind: 'devices', filter: 'offline', title: 'Geräte offline' }, offlineWifiDevice: { kind: 'devices', filter: 'offline-ap', title: 'APs offline' },
+    offlineWiredDevice: { kind: 'devices', filter: 'offline-switch', title: 'Switches offline' }, offlineGatewayDevice: { kind: 'devices', filter: 'offline-gateway', title: 'Gateways offline' },
+    pendingUpdateDevice: { kind: 'devices', filter: 'update', title: 'Updates offen' },
+    wifiConfiguration: { kind: 'wifis', title: 'WLANs' }, lanConfiguration: { kind: 'networks', title: 'LAN-Netze' }, wanConfiguration: { kind: 'wans', title: 'WAN-Anschlüsse' }
+  };
+  function hostName(hostId) {
+    var x = state.hosts.filter(function (v) { return v.id === hostId; })[0];
+    return x ? pick(x, 'reportedState.name', 'reportedState.hostname', 'userData.name') : undefined;
+  }
   function viewSites(data) {
     if (!data.length) return notice('info', 'Keine Sites gefunden', 'Es ist keine Site mit Network-Anwendung erreichbar.');
     var grid = h('div', { class: 'grid' });
     data.forEach(function (s) {
-      var name = pick(s, 'meta.desc', 'meta.name', 'name') || s.siteId;
+      var siteName = pick(s, 'meta.desc', 'meta.name', 'name') || s.siteId;
+      var host = hostName(s.hostId);
+      var name = host || siteName;
       var counts = get(s, ['statistics', 'counts']) || {};
-      var DRILL = { wifiClient: ['wireless', 'WLAN-Clients'], wiredClient: ['wired', 'LAN-Clients'], guestClient: ['guest', 'Gast-Clients'] };
-      var tiles = Object.keys(counts).filter(function (k) { return typeof counts[k] === 'number'; }).map(function (k) {
+      var keys = Object.keys(counts).filter(function (k) {
+        if (typeof counts[k] !== 'number') return false;
+        return !/^offline(Gateway|Wifi|Wired)Device$/.test(k) || counts[k] > 0;
+      }).sort(function (a, b) {
+        var ia = COUNT_ORDER.indexOf(a), ib = COUNT_ORDER.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+      var tiles = keys.map(function (k) {
         var dr = DRILL[k];
-        return tile(COUNT_LABELS[k] || k, counts[k], dr && window.Drill && s.hostId ? function () { window.Drill.open({ hostId: s.hostId, kind: dr[0], title: dr[1] + ' · ' + name }); } : null);
+        return tile(COUNT_LABELS[k] || k, counts[k], dr && window.Drill && s.hostId ? function () {
+          window.Drill.open(Object.assign({ hostId: s.hostId }, dr, { title: dr.title + ' · ' + name }));
+        } : null);
       });
       var pct = get(s, ['statistics', 'percentages']) || {};
       var isp = get(s, ['statistics', 'ispInfo']) || {};
@@ -264,7 +290,7 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
       Object.keys(pct).forEach(function (k) { if (typeof pct[k] === 'number') rows.splice(2, 0, [k === 'wanUptime' ? 'WAN-Verfügbarkeit' : k, fmtNum(pct[k], 2) + ' %']); });
       grid.appendChild(h('article', { class: 'card item' }, [
         h('h3', { text: String(name) }),
-        h('div', { class: 'sub', text: pick(s, 'meta.name') && pick(s, 'meta.desc') ? String(s.meta.name) : '' }),
+        h('div', { class: 'sub', text: host ? 'Site: ' + siteName : (pick(s, 'meta.name') && pick(s, 'meta.desc') ? String(s.meta.name) : '') }),
         tiles.length ? h('div', { class: 'tiles', style: 'margin:12px 0' }, tiles) : null,
         kv(rows)
       ]));
@@ -424,7 +450,7 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
         var err = hint(resp && resp.__status || 0, resp);
         content = notice(err[0], err[1], err[2] || (resp && resp.error) || '');
       } else if (up.status < 200 || up.status >= 300) {
-        var e2 = hint(up.status, up.body);
+        var e2 = up.status === 401 ? ['bad', 'UniFi lehnt den API-Key ab (401)', 'Der Key ist falsch oder vom falschen Typ. Nötig ist ein Site-Manager-Key von unifi.ui.com unter API, kein lokaler Key aus der Network-App.'] : hint(up.status, up.body);
         content = h('div', null, [notice(e2[0], e2[1], e2[2]), up.body && up.body.message ? h('p', { class: 'muted small', style: 'margin-top:8px', text: String(up.body.message) }) : null]);
       } else {
         var d = up.body && up.body.data !== undefined ? up.body.data : up.body;
@@ -512,7 +538,20 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
       res.appendChild(notice('info', 'Lokale Network-API über die Cloud', 'Konsole und Vorlage wählen, dann «Abfragen». Für Vorlagen mit Site-ID zuerst «Network: Sites» abfragen.'));
       return;
     }
+    if (view === 'sites' && !state.hosts.length) {
+      // Konsolennamen für die Titel der Sites laden
+      ensureHosts().then(function () { run(view, ENDPOINTS[view]); });
+      return;
+    }
     run(view, ENDPOINTS[view]);
+  }
+
+  async function ensureHosts() {
+    try {
+      var r = await fetch(ENDPOINTS.hosts, { headers: { Authorization: 'Bearer ' + $('tok').value } });
+      var j = await r.json(), d = j && j.body && j.body.data;
+      if (r.ok && Array.isArray(d)) { state.hosts = d; fillHosts(); }
+    } catch (e) { /* ohne Konsolennamen weitermachen */ }
   }
 
   document.querySelectorAll('button.tab').forEach(function (b) { b.onclick = function () { select(b.dataset.v); }; });
