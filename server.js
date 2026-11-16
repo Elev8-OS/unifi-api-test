@@ -63,11 +63,16 @@ function readJson(req) {
   });
 }
 
+const conn = (hostId, p) => '/v1/connector/consoles/' + hostId + p;
+
+const monitor = require('./monitor')({ upstream, conn, NET });
+
 const PAGE = fs.readFileSync(nodePath.join(__dirname, 'index.html'), 'utf8')
-  .replace('</body>', '<script src="/clients.js"></script>\n<script src="/actions.js"></script>\n</body>');
+  .replace('</body>', '<script src="/clients.js"></script>\n<script src="/actions.js"></script>\n<script src="/monitor-ui.js"></script>\n</body>');
 const STATIC_JS = {
   '/actions.js': fs.readFileSync(nodePath.join(__dirname, 'actions.js'), 'utf8'),
   '/clients.js': fs.readFileSync(nodePath.join(__dirname, 'clients.js'), 'utf8'),
+  '/monitor-ui.js': fs.readFileSync(nodePath.join(__dirname, 'monitor-ui.js'), 'utf8'),
 };
 
 const ROUTES = {
@@ -80,7 +85,6 @@ const ROUTES = {
 
 const RE_HOST = /^[A-Za-z0-9:_-]+$/;
 const RE_ID = /^[0-9a-fA-F-]{8,64}$/;
-const conn = (hostId, p) => '/v1/connector/consoles/' + hostId + p;
 
 // Erlaubte Schreibaktionen. Alles andere wird abgelehnt.
 const WRITE = {
@@ -175,6 +179,11 @@ http.createServer(async (req, res) => {
       if (!KEY) return send(res, 500, { error: 'UNIFI_API_KEY ist nicht gesetzt' });
       return handleWrite(req, res);
     }
+    if (req.method === 'POST' && url.pathname === '/api/monitor/test') {
+      if (!authorized(req)) return send(res, 401, { error: 'Token fehlt oder falsch (Header Authorization: Bearer <TEST_TOKEN>)' });
+      try { await monitor.sendTest(); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 502, { error: String(e && e.message || e) }); }
+    }
     if (req.method !== 'GET') return send(res, 405, { error: 'Methode nicht erlaubt' });
     if (url.pathname === '/health') return send(res, 200, { ok: true });
     if (url.pathname === '/') return send(res, 200, PAGE, 'text/html; charset=utf-8');
@@ -183,6 +192,7 @@ http.createServer(async (req, res) => {
     if (!authorized(req)) return send(res, 401, { error: 'Token fehlt oder falsch (Header Authorization: Bearer <TEST_TOKEN>)' });
     if (!KEY) return send(res, 500, { error: 'UNIFI_API_KEY ist nicht gesetzt' });
 
+    if (url.pathname === '/api/monitor') return send(res, 200, monitor.status());
     if (url.pathname === '/api/status') {
       const r = await upstream('/v1/hosts');
       const n = Array.isArray(r.body && r.body.data) ? r.body.data.length : null;
@@ -205,4 +215,4 @@ http.createServer(async (req, res) => {
   } catch (e) {
     return send(res, 502, { error: String(e && e.message || e) });
   }
-}).listen(PORT, () => console.log('unifi-api-test läuft auf Port ' + PORT));
+}).listen(PORT, () => { console.log('unifi-api-test läuft auf Port ' + PORT); monitor.start(); });
