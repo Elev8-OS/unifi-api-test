@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UniFi API Test</title>
+<style>
+:root{
+  --canvas:#f5f5f5;--surface:#fff;--surface-2:#fafafa;--ink:#000;--ink-2:#262626;--muted:#5f5f5f;
+  --line:#e5e5e5;--line-strong:#cfcfcf;--yellow:#F6BB12;--yellow-soft:#fef4d4;--yellow-ink:#6b4e00;
+  --success:#067647;--success-soft:#ecfdf3;--warning:#b54708;--warning-soft:#fffaeb;--danger:#b42318;--danger-soft:#fef3f2;
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --canvas:#000;--surface:#111;--surface-2:#191919;--ink:#fff;--ink-2:#e5e5e5;--muted:#a3a3a3;
+  --line:#262626;--line-strong:#3a3a3a;--yellow-soft:#2a2207;--yellow-ink:#f6bb12;
+  --success:#75e0a7;--success-soft:#0a2016;--warning:#fec84b;--warning-soft:#2a1f05;--danger:#fda29b;--danger-soft:#2b0f0d;color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 15px/22px var(--font);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:24px 20px 56px;display:flex;flex-direction:column;gap:16px}
+header h1{margin:0 0 4px;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-.02em}
+header p{margin:0;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card>h2,.sec-h{margin:0 0 12px;font-size:16px;line-height:24px;font-weight:650;border-left:4px solid var(--yellow);padding-left:10px}
+.muted{color:var(--muted)}.small{font-size:13px;line-height:18px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input,select{font:inherit;color:var(--ink);background:var(--surface);padding:8px 12px;border:1px solid var(--line-strong);border-radius:12px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+button{font:inherit;font-weight:600;padding:8px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{background:var(--surface-2)}
+button.primary{background:var(--yellow);border-color:var(--yellow);color:#000}
+button.tab[aria-pressed="true"]{background:var(--yellow-soft);border-color:var(--yellow);color:var(--yellow-ink)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.tile{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px}
+.tile .l{font-size:12px;line-height:16px;font-weight:500;color:var(--muted)}
+.tile .v{font-size:24px;line-height:30px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px}
+.item .tiles{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.item .tile{padding:10px 12px}
+.item .tile .v{font-size:20px;line-height:26px}
+.item h3{margin:0;font-size:16px;line-height:24px;font-weight:650;overflow-wrap:anywhere}
+.item .sub{color:var(--muted);font-size:13px;line-height:18px;margin-top:2px;overflow-wrap:anywhere}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;line-height:18px;font-weight:500;border:1px solid var(--line-strong);color:var(--ink-2);background:var(--surface)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--success-soft);color:var(--success);border-color:transparent}
+.pill.warn{background:var(--warning-soft);color:var(--warning);border-color:transparent}
+.pill.bad{background:var(--danger-soft);color:var(--danger);border-color:transparent}
+.pill.plain::before{display:none}
+dl.kv{display:grid;grid-template-columns:minmax(110px,max-content) 1fr;gap:6px 16px;margin:0}
+dl.kv dt{color:var(--muted);font-size:13px;line-height:20px}
+dl.kv dd{margin:0;font-size:14px;line-height:20px;overflow-wrap:anywhere}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;line-height:16px;font-weight:500;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px;line-height:20px}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+.notice{border-radius:14px;padding:14px 16px;border:1px solid transparent}
+.notice.bad{background:var(--danger-soft);color:var(--danger)}
+.notice.warn{background:var(--warning-soft);color:var(--warning)}
+.notice.info{background:var(--yellow-soft);color:var(--yellow-ink)}
+.notice b{display:block;margin-bottom:2px}
+details.raw{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+details.raw summary,details.tree summary{cursor:pointer;font-weight:600;font-size:13px}
+pre{margin:12px 0 0;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;max-height:480px;font-size:12px;line-height:18px}
+details.tree{margin:4px 0}
+details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--line)}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+.sec{margin-top:20px}
+.sec:first-child{margin-top:0}
+.sec-h{font-size:14px;line-height:20px}
+@media (max-width:640px){.wrap{padding:16px 12px 40px}dl.kv{grid-template-columns:1fr}dl.kv dt{margin-top:6px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>UniFi API Test</h1>
+    <p>Nur lesende Abfragen an die Site Manager API. Der UniFi-Key bleibt auf dem Server.</p>
+  </header>
+
+  <section class="card" aria-label="Zugriff und Abfragen">
+    <div class="bar" style="margin-bottom:12px">
+      <input id="tok" type="password" placeholder="Zugriffstoken (TEST_TOKEN)" autocomplete="off" aria-label="Zugriffstoken" style="flex:1 1 280px">
+    </div>
+    <div class="bar" role="group" aria-label="Ansicht wählen">
+      <button class="tab" data-v="status">Status</button>
+      <button class="tab" data-v="hosts">Konsolen</button>
+      <button class="tab" data-v="sites">Sites</button>
+      <button class="tab" data-v="devices">Geräte</button>
+      <button class="tab" data-v="isp">WAN-Messwerte</button>
+      <button class="tab" data-v="connector">Connector</button>
+    </div>
+    <div id="conn" class="bar" style="margin-top:12px" hidden>
+      <select id="chost" aria-label="Konsole" style="flex:1 1 220px"><option value="">Konsole wählen (zuerst «Konsolen» laden)</option></select>
+      <select id="cpreset" aria-label="Vorlage" style="flex:1 1 260px"></select>
+      <input id="cpath" aria-label="Pfad" style="flex:2 1 320px" value="/proxy/network/integration/v1/sites">
+      <button class="primary" id="cgo">Abfragen</button>
+    </div>
+  </section>
+
+  <section class="card" id="result" aria-live="polite">
+    <div class="empty">Wähle oben eine Ansicht.</div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { hosts: [], siteId: '' };
+
+  // ---------- kleine Helfer ----------
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'class') el.className = attrs[k];
+      else if (k === 'text') el.textContent = attrs[k];
+      else el.setAttribute(k, attrs[k]);
+    });
+    (kids || []).forEach(function (c) {
+      if (c == null || c === false) return;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return el;
+  }
+  function get(o, path) {
+    var cur = o;
+    for (var i = 0; i < path.length; i++) { if (cur == null) return undefined; cur = cur[path[i]]; }
+    return cur;
+  }
+  function pick(o) {
+    for (var i = 1; i < arguments.length; i++) {
+      var v = get(o, arguments[i].split('.'));
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+  }
+  function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+  function fmtDate(v) {
+    if (!v) return '–';
+    var d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    return new Intl.DateTimeFormat('de-CH', { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+  }
+  function fmtNum(v, digits) {
+    if (typeof v !== 'number') return v == null ? '–' : String(v);
+    return new Intl.NumberFormat('de-CH', { maximumFractionDigits: digits == null ? 1 : digits }).format(v);
+  }
+  function ago(v) {
+    var d = new Date(v); if (isNaN(d.getTime())) return '';
+    var s = Math.round((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return 'vor ' + s + ' s';
+    if (s < 3600) return 'vor ' + Math.round(s / 60) + ' min';
+    if (s < 86400) return 'vor ' + Math.round(s / 3600) + ' h';
+    return 'vor ' + Math.round(s / 86400) + ' Tagen';
+  }
+  function pill(text, kind) { return h('span', { class: 'pill ' + (kind || 'plain'), text: text }); }
+  function stateKind(s) {
+    var t = String(s || '').toLowerCase();
+    if (/^(online|connected|up|ok|active|adopted)$/.test(t)) return 'ok';
+    if (/offline|disconnected|down|error|fail/.test(t)) return 'bad';
+    if (!t) return 'plain';
+    return 'warn';
+  }
+  function stateText(s) {
+    var t = String(s || '').toLowerCase();
+    var map = { online: 'Online', connected: 'Online', offline: 'Offline', disconnected: 'Offline', up: 'Online', down: 'Offline' };
+    return map[t] || (s ? String(s) : 'unbekannt');
+  }
+  function tile(label, value) {
+    return h('div', { class: 'tile' }, [h('div', { class: 'l', text: label }), h('div', { class: 'v', text: String(value) })]);
+  }
+  function kv(rows) {
+    var dl = h('dl', { class: 'kv' });
+    rows.forEach(function (r) {
+      if (r[1] === undefined || r[1] === null || r[1] === '') return;
+      dl.appendChild(h('dt', { text: r[0] }));
+      var dd = h('dd');
+      if (r[1] instanceof Node) dd.appendChild(r[1]); else dd.textContent = String(r[1]);
+      dl.appendChild(dd);
+    });
+    return dl;
+  }
+  function table(cols, rows) {
+    var thead = h('thead', null, [h('tr', null, cols.map(function (c) { return h('th', { class: c.num ? 'num' : '', text: c.label }); }))]);
+    var tbody = h('tbody', null, rows.map(function (r) {
+      return h('tr', null, cols.map(function (c) {
+        var v = c.get(r), td = h('td', { class: c.num ? 'num' : '' });
+        if (v instanceof Node) td.appendChild(v); else td.textContent = v == null || v === '' ? '–' : String(v);
+        return td;
+      }));
+    }));
+    return h('div', { class: 'scroll' }, [h('table', null, [thead, tbody])]);
+  }
+
+  // ---------- Darstellung je Ansicht ----------
+  function viewHosts(data) {
+    if (!data.length) return notice('info', 'Keine Konsolen gefunden', 'Dem Konto des Keys ist keine Konsole zugeordnet, oder sie ist offline.');
+    var online = data.filter(function (x) { return stateKind(pick(x, 'reportedState.state', 'state')) === 'ok'; }).length;
+    var box = h('div');
+    box.appendChild(h('div', { class: 'tiles', style: 'margin-bottom:16px' }, [tile('Konsolen', data.length), tile('Online', online), tile('Offline / unklar', data.length - online)]));
+    var grid = h('div', { class: 'grid' });
+    data.forEach(function (x) {
+      var name = pick(x, 'reportedState.name', 'reportedState.hostname', 'userData.name', 'name') || x.id;
+      var hw = pick(x, 'reportedState.hardware.name', 'reportedState.hardware.shortname', 'type');
+      var st = pick(x, 'reportedState.state', 'state');
+      var ver = pick(x, 'reportedState.version', 'reportedState.controllers.0.version');
+      var ctrls = (get(x, ['reportedState', 'controllers']) || []).map(function (c) { return c && (c.name || c.type); }).filter(Boolean).join(', ');
+      grid.appendChild(h('article', { class: 'card item' }, [
+        h('h3', { text: String(name) }),
+        h('div', { class: 'sub', text: hw ? String(hw) : '' }),
+        h('div', { class: 'pills' }, [pill(stateText(st), stateKind(st)), x.isBlocked ? pill('Gesperrt', 'bad') : null, ver ? pill('Version ' + ver, 'plain') : null]),
+        kv([
+          ['WAN-IP', pick(x, 'ipAddress', 'reportedState.ip')],
+          ['Anwendungen', ctrls],
+          ['Zuletzt verbunden', get(x, ['lastConnectionStateChange']) ? fmtDate(x.lastConnectionStateChange) + ' (' + ago(x.lastConnectionStateChange) + ')' : undefined],
+          ['Letztes Backup', x.latestBackupTime ? fmtDate(x.latestBackupTime) : undefined],
+          ['Registriert', x.registrationTime ? fmtDate(x.registrationTime) : undefined],
+          ['Host-ID', h('span', { class: 'mono', text: String(x.id) })]
+        ])
+      ]));
+    });
+    box.appendChild(grid);
+    return box;
+  }
+
+  var COUNT_LABELS = {
+    totalDevice: 'Geräte', offlineDevice: 'Geräte offline', pendingUpdateDevice: 'Updates offen', wifiClient: 'WLAN-Clients',
+    wiredClient: 'LAN-Clients', guestClient: 'Gast-Clients', wifiDevice: 'Access Points', wiredDevice: 'Switches', gatewayDevice: 'Gateways',
+    criticalNotification: 'Kritische Meldungen', wifiConfiguration: 'WLANs', wiredConfiguration: 'LAN-Netze'
+  };
+  function viewSites(data) {
+    if (!data.length) return notice('info', 'Keine Sites gefunden', 'Es ist keine Site mit Network-Anwendung erreichbar.');
+    var grid = h('div', { class: 'grid' });
+    data.forEach(function (s) {
+      var name = pick(s, 'meta.desc', 'meta.name', 'name') || s.siteId;
+      var counts = get(s, ['statistics', 'counts']) || {};
+      var tiles = Object.keys(counts).filter(function (k) { return typeof counts[k] === 'number'; }).map(function (k) { return tile(COUNT_LABELS[k] || k, counts[k]); });
+      var pct = get(s, ['statistics', 'percentages']) || {};
+      var isp = get(s, ['statistics', 'ispInfo']) || {};
+      var rows = [
+        ['Zeitzone', get(s, ['meta', 'timezone'])],
+        ['Anbieter', isp.name || isp.organization],
+        ['Rolle', s.isOwner ? 'Besitzer' : s.permission],
+        ['Site-ID', h('span', { class: 'mono', text: String(s.siteId) })],
+        ['Host-ID', h('span', { class: 'mono', text: String(s.hostId) })]
+      ];
+      Object.keys(pct).forEach(function (k) { if (typeof pct[k] === 'number') rows.splice(2, 0, [k === 'wanUptime' ? 'WAN-Verfügbarkeit' : k, fmtNum(pct[k], 2) + ' %']); });
+      grid.appendChild(h('article', { class: 'card item' }, [
+        h('h3', { text: String(name) }),
+        h('div', { class: 'sub', text: pick(s, 'meta.name') && pick(s, 'meta.desc') ? String(s.meta.name) : '' }),
+        tiles.length ? h('div', { class: 'tiles', style: 'margin:12px 0' }, tiles) : null,
+        kv(rows)
+      ]));
+    });
+    return grid;
+  }
+
+  function viewDevices(data) {
+    var groups = data.length && data[0] && Array.isArray(data[0].devices) ? data : [{ hostName: '', hostId: '', devices: data }];
+    var all = []; groups.forEach(function (g) { (g.devices || []).forEach(function (d) { all.push(d); }); });
+    if (!all.length) return notice('info', 'Keine Geräte gefunden', 'Für diese Konsolen liefert die API keine Geräte. Die Rolle Owner oder Super Admin ist nötig.');
+    var offline = all.filter(function (d) { return stateKind(d.status || d.state) === 'bad'; }).length;
+    var updates = all.filter(function (d) { return d.updateAvailable || /upgrad|available/i.test(String(d.firmwareStatus || '')); }).length;
+    var box = h('div');
+    box.appendChild(h('div', { class: 'tiles', style: 'margin-bottom:16px' }, [tile('Geräte', all.length), tile('Offline', offline), tile('Update verfügbar', updates)]));
+    groups.forEach(function (g) {
+      var devs = g.devices || [];
+      if (!devs.length) return;
+      var sec = h('section', { class: 'sec' });
+      sec.appendChild(h('div', { class: 'sec-h', text: (g.hostName || g.hostId || 'Geräte') + ' · ' + devs.length + (devs.length === 1 ? ' Gerät' : ' Geräte') }));
+      sec.appendChild(table([
+        { label: 'Name', get: function (d) { return h('span', null, [h('b', { text: String(d.name || d.shortname || d.model || d.id) })]); } },
+        { label: 'Modell', get: function (d) { return d.model || d.shortname; } },
+        { label: 'Status', get: function (d) { var s = d.status || d.state; return pill(stateText(s), stateKind(s)); } },
+        { label: 'IP', get: function (d) { return d.ip || d.ipAddress; } },
+        { label: 'Firmware', get: function (d) {
+            var v = d.version || d.firmware; var up = d.updateAvailable || /upgrad|available/i.test(String(d.firmwareStatus || ''));
+            return h('span', null, [v ? String(v) + ' ' : '–', up ? pill('Update', 'warn') : null]);
+          } },
+        { label: 'MAC', get: function (d) { return d.mac ? h('span', { class: 'mono', text: String(d.mac) }) : '–'; } },
+        { label: 'Rolle', get: function (d) { return d.isConsole ? 'Konsole' : (d.productLine || ''); } },
+        { label: 'Läuft seit', get: function (d) { return d.startupTime ? fmtDate(d.startupTime) : '–'; } }
+      ], devs));
+      box.appendChild(sec);
+    });
+    return box;
+  }
+
+  function viewIsp(data) {
+    var rows = [];
+    data.forEach(function (m) {
+      (m.periods || []).forEach(function (p) {
+        var w = get(p, ['data', 'wan']) || {};
+        rows.push({ t: p.metricTime, host: m.hostId, w: w });
+      });
+    });
+    if (!rows.length) return notice('info', 'Keine Messwerte', 'Die API hat keine WAN-Messwerte geliefert. Neue Konsolen brauchen etwas Zeit, bis Werte vorliegen.');
+    rows.sort(function (a, b) { return new Date(b.t) - new Date(a.t); });
+    var last = rows[0].w;
+    var box = h('div');
+    box.appendChild(h('div', { class: 'tiles', style: 'margin-bottom:16px' }, [
+      tile('Latenz (Schnitt)', last.avgLatency != null ? fmtNum(last.avgLatency) + ' ms' : '–'),
+      tile('Latenz (max)', last.maxLatency != null ? fmtNum(last.maxLatency) + ' ms' : '–'),
+      tile('Paketverlust', last.packetLoss != null ? fmtNum(last.packetLoss, 2) + ' %' : '–'),
+      tile('Download', last.download_kbps != null ? fmtNum(last.download_kbps / 1000, 0) + ' Mbit/s' : '–'),
+      tile('Upload', last.upload_kbps != null ? fmtNum(last.upload_kbps / 1000, 0) + ' Mbit/s' : '–'),
+      tile('Ausfallzeit', last.downtime != null ? fmtNum(last.downtime, 0) + ' s' : '–')
+    ]));
+    box.appendChild(h('div', { class: 'sec-h', text: 'Letzte Messungen' }));
+    box.appendChild(table([
+      { label: 'Zeit', get: function (r) { return fmtDate(r.t); } },
+      { label: 'Latenz Ø', num: true, get: function (r) { return r.w.avgLatency != null ? fmtNum(r.w.avgLatency) + ' ms' : '–'; } },
+      { label: 'Latenz max', num: true, get: function (r) { return r.w.maxLatency != null ? fmtNum(r.w.maxLatency) + ' ms' : '–'; } },
+      { label: 'Paketverlust', num: true, get: function (r) { return r.w.packetLoss != null ? fmtNum(r.w.packetLoss, 2) + ' %' : '–'; } },
+      { label: 'Download', num: true, get: function (r) { return r.w.download_kbps != null ? fmtNum(r.w.download_kbps / 1000, 0) + ' Mbit/s' : '–'; } },
+      { label: 'Upload', num: true, get: function (r) { return r.w.upload_kbps != null ? fmtNum(r.w.upload_kbps / 1000, 0) + ' Mbit/s' : '–'; } },
+      { label: 'Verfügbarkeit', num: true, get: function (r) { return r.w.uptime != null ? fmtNum(r.w.uptime, 2) + ' %' : '–'; } }
+    ], rows.slice(0, 24)));
+    return box;
+  }
+
+  // Allgemeine Darstellung für alles, was keine eigene Ansicht hat (Connector)
+  function scalarCols(arr) {
+    var seen = {}, order = [];
+    arr.slice(0, 20).forEach(function (o) { Object.keys(o).forEach(function (k) {
+      if (!seen[k] && (o[k] === null || typeof o[k] !== 'object')) { seen[k] = 1; order.push(k); } }); });
+    var pref = ['name', 'id', 'model', 'type', 'ip', 'ipAddress', 'mac', 'state', 'status', 'enabled', 'vlan', 'x_passphrase'];
+    order.sort(function (a, b) { var ia = pref.indexOf(a), ib = pref.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+    return order.slice(0, 8);
+  }
+  function generic(v, depth) {
+    depth = depth || 0;
+    if (Array.isArray(v)) {
+      if (!v.length) return h('p', { class: 'muted', text: 'Leere Liste' });
+      if (v.every(isObj)) {
+        var cols = scalarCols(v);
+        if (cols.length) return table(cols.map(function (k) { return { label: k, get: function (r) {
+          var x = r[k]; if (typeof x === 'boolean') return pill(x ? 'ja' : 'nein', x ? 'ok' : 'plain'); return x; } }; }), v);
+      }
+      return h('ul', null, v.map(function (x) { return h('li', { text: typeof x === 'object' ? JSON.stringify(x) : String(x) }); }));
+    }
+    if (isObj(v)) {
+      var simple = [], nested = [];
+      Object.keys(v).forEach(function (k) { (v[k] !== null && typeof v[k] === 'object' ? nested : simple).push(k); });
+      var box = h('div');
+      if (simple.length) box.appendChild(kv(simple.map(function (k) {
+        var x = v[k]; return [k, typeof x === 'boolean' ? (x ? 'ja' : 'nein') : String(x)]; })));
+      nested.forEach(function (k) {
+        var d = h('details', { class: 'tree' }); if (depth < 1) d.open = true;
+        d.appendChild(h('summary', { text: k + (Array.isArray(v[k]) ? ' (' + v[k].length + ')' : '') }));
+        d.appendChild(h('div', null, [generic(v[k], depth + 1)]));
+        box.appendChild(d);
+      });
+      return box;
+    }
+    return h('p', { text: String(v) });
+  }
+
+  function notice(kind, title, text) {
+    return h('div', { class: 'notice ' + kind }, [h('b', { text: title }), h('span', { text: text })]);
+  }
+
+  // ---------- Abfragen ----------
+  var ENDPOINTS = { status: '/api/status', hosts: '/api/hosts', sites: '/api/sites', devices: '/api/devices', isp: '/api/isp-metrics/5m' };
+  var TITLES = { status: 'Status', hosts: 'Konsolen', sites: 'Sites', devices: 'Geräte', isp: 'WAN-Messwerte', connector: 'Connector' };
+
+  function hint(status, body) {
+    if (status === 401) return ['bad', 'Zugriff verweigert', 'Das Zugriffstoken fehlt oder ist falsch.'];
+    if (status === 500) return ['bad', 'Server nicht bereit', (body && body.error) || 'UNIFI_API_KEY fehlt in Railway.'];
+    if (status === 403) return ['bad', 'UniFi verweigert den Zugriff (403)', 'Der Key hat für diese Abfrage keine Berechtigung. Für Geräte braucht das Konto die Rolle Owner oder Super Admin.'];
+    if (status === 404) return ['warn', 'Nicht gefunden (404)', 'Dieser Pfad existiert nicht. Bei Connector-Abfragen Pfad und Host-ID prüfen.'];
+    if (status === 429) return ['warn', 'Zu viele Anfragen (429)', 'Kurz warten und erneut versuchen.'];
+    if (status >= 500) return ['warn', 'UniFi-Cloud antwortet nicht (' + status + ')', 'Bei Connector-Abfragen ist die Konsole eventuell offline oder die lokale API nicht erreichbar.'];
+    return ['bad', 'Fehler (' + status + ')', ''];
+  }
+
+  function show(view, resp, rawText) {
+    var res = $('result'); res.textContent = '';
+    res.appendChild(h('h2', { class: 'sec-h', text: TITLES[view] || view }));
+    var up = resp && resp.body !== undefined ? resp : null;
+    var strip = h('div', { class: 'strip' });
+    if (up) {
+      strip.appendChild(pill('HTTP ' + up.status, up.status >= 200 && up.status < 300 ? 'ok' : 'bad'));
+      strip.appendChild(pill(up.ms + ' ms', 'plain'));
+      strip.appendChild(h('span', { class: 'mono muted', text: String(up.path || '') }));
+    }
+    res.appendChild(strip);
+
+    var content;
+    try {
+      if (view === 'status') {
+        content = h('div', { class: 'tiles' }, [
+          tile('Key gesetzt', resp.keyGesetzt ? 'ja' : 'nein'), tile('UniFi-Antwort', 'HTTP ' + resp.upstreamStatus),
+          tile('Antwortzeit', resp.ms + ' ms'), tile('Konsolen', resp.anzahlHosts == null ? '–' : resp.anzahlHosts)]);
+        if (resp.upstreamStatus === 401 || resp.upstreamStatus === 403) {
+          content = h('div', null, [notice('bad', 'Der UniFi-Key wird abgelehnt', 'UniFi antwortet mit ' + resp.upstreamStatus + '. Key prüfen oder neu erstellen.'), h('div', { style: 'height:12px' }), content]);
+        } else if (resp.upstreamStatus === 200) {
+          content = h('div', null, [notice('info', 'Verbindung steht', 'Der Key ist gültig und die Site Manager API antwortet.'), h('div', { style: 'height:12px' }), content]);
+        }
+      } else if (!up) {
+        var err = hint(resp && resp.__status || 0, resp);
+        content = notice(err[0], err[1], err[2] || (resp && resp.error) || '');
+      } else if (up.status < 200 || up.status >= 300) {
+        var e2 = hint(up.status, up.body);
+        content = h('div', null, [notice(e2[0], e2[1], e2[2]), up.body && up.body.message ? h('p', { class: 'muted small', style: 'margin-top:8px', text: String(up.body.message) }) : null]);
+      } else {
+        var d = up.body && up.body.data !== undefined ? up.body.data : up.body;
+        if (view === 'hosts') { state.hosts = Array.isArray(d) ? d : []; fillHosts(); content = viewHosts(state.hosts); }
+        else if (view === 'sites') content = viewSites(Array.isArray(d) ? d : []);
+        else if (view === 'devices') content = viewDevices(Array.isArray(d) ? d : []);
+        else if (view === 'isp') content = viewIsp(Array.isArray(d) ? d : []);
+        else {
+          rememberSite(d);
+          content = generic(d);
+        }
+      }
+    } catch (ex) {
+      content = notice('warn', 'Darstellung nicht möglich', 'Die Antwort hat ein unerwartetes Format. Die Rohdaten stehen unten. (' + ex.message + ')');
+    }
+    res.appendChild(content);
+
+    var raw = h('details', { class: 'raw' }, [h('summary', { text: 'Rohdaten (JSON)' })]);
+    var pre = h('pre', { text: rawText });
+    raw.appendChild(pre);
+    var copy = h('button', { text: 'Kopieren', style: 'margin-top:12px' });
+    copy.onclick = function () { try { navigator.clipboard.writeText(rawText); copy.textContent = 'Kopiert'; } catch (e) { copy.textContent = 'Nicht möglich'; } };
+    raw.appendChild(copy);
+    res.appendChild(raw);
+  }
+
+  function rememberSite(d) {
+    var arr = Array.isArray(d) ? d : (d && Array.isArray(d.data) ? d.data : []);
+    if (arr[0] && arr[0].id && /^[0-9a-f-]{20,}$/i.test(String(arr[0].id))) { state.siteId = String(arr[0].id); fillPresets(); }
+  }
+
+  function fillHosts() {
+    var sel = $('chost'), cur = sel.value; sel.textContent = '';
+    sel.appendChild(h('option', { value: '', text: state.hosts.length ? 'Konsole wählen' : 'Zuerst «Konsolen» laden' }));
+    state.hosts.forEach(function (x) {
+      var name = pick(x, 'reportedState.name', 'reportedState.hostname', 'userData.name') || x.id;
+      sel.appendChild(h('option', { value: x.id, text: name + ' (' + String(x.id).slice(0, 8) + '…)' }));
+    });
+    if (cur) sel.value = cur; else if (state.hosts.length === 1) sel.value = state.hosts[0].id;
+  }
+
+  var PRESETS = [
+    ['Network: Info', '/proxy/network/integration/v1/info'],
+    ['Network: Sites', '/proxy/network/integration/v1/sites'],
+    ['Network: Geräte der Site', '/proxy/network/integration/v1/sites/{siteId}/devices'],
+    ['Network: Clients der Site', '/proxy/network/integration/v1/sites/{siteId}/clients'],
+    ['Network: WLANs der Site', '/proxy/network/integration/v1/sites/{siteId}/wifi/broadcasts'],
+    ['Altes API: WLAN-Konfiguration', '/proxy/network/api/s/default/rest/wlanconf'],
+    ['Altes API: verbundene Clients', '/proxy/network/api/s/default/stat/sta']
+  ];
+  function fillPresets() {
+    var sel = $('cpreset'); sel.textContent = '';
+    sel.appendChild(h('option', { value: '', text: 'Vorlage wählen' }));
+    PRESETS.forEach(function (p) {
+      var needs = p[1].indexOf('{siteId}') >= 0;
+      sel.appendChild(h('option', { value: p[1], text: p[0] + (needs && !state.siteId ? ' (zuerst Sites abfragen)' : '') }));
+    });
+  }
+  $('cpreset').onchange = function () {
+    var v = this.value; if (!v) return;
+    $('cpath').value = v.replace('{siteId}', state.siteId || '{siteId}');
+  };
+
+  async function run(view, url) {
+    var res = $('result'); res.textContent = ''; res.appendChild(h('div', { class: 'empty', text: 'Lädt …' }));
+    try { sessionStorage.setItem('tok', $('tok').value); } catch (e) {}
+    try {
+      var r = await fetch(url, { headers: { Authorization: 'Bearer ' + $('tok').value } });
+      var text = await r.text(), json;
+      try { json = JSON.parse(text); } catch (e) { json = { error: text }; }
+      var pretty = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+      if (!r.ok && !(json && json.body !== undefined)) json.__status = r.status;
+      show(view, json, pretty);
+    } catch (e) {
+      res.textContent = ''; res.appendChild(notice('bad', 'Keine Verbindung', e.message));
+    }
+  }
+
+  function select(view) {
+    document.querySelectorAll('button.tab').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === view)); });
+    $('conn').hidden = view !== 'connector';
+    if (view === 'connector') {
+      var res = $('result'); res.textContent = '';
+      res.appendChild(h('h2', { class: 'sec-h', text: 'Connector' }));
+      res.appendChild(notice('info', 'Lokale Network-API über die Cloud', 'Konsole und Vorlage wählen, dann «Abfragen». Für Vorlagen mit Site-ID zuerst «Network: Sites» abfragen.'));
+      return;
+    }
+    run(view, ENDPOINTS[view]);
+  }
+
+  document.querySelectorAll('button.tab').forEach(function (b) { b.onclick = function () { select(b.dataset.v); }; });
+  $('cgo').onclick = function () {
+    var host = $('chost').value, path = $('cpath').value;
+    if (!host) { show('connector', { __status: 400, error: 'Bitte zuerst eine Konsole wählen.' }, '{}'); return; }
+    if (path.indexOf('{siteId}') >= 0) { show('connector', { __status: 400, error: 'Die Site-ID fehlt noch. Erst «Network: Sites» abfragen.' }, '{}'); return; }
+    run('connector', '/api/connector?hostId=' + encodeURIComponent(host) + '&path=' + encodeURIComponent(path));
+  };
+  try { $('tok').value = sessionStorage.getItem('tok') || ''; } catch (e) {}
+  fillPresets();
+})();
+</script>
+</body>
+</html>
