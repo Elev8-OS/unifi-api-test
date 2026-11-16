@@ -64,8 +64,11 @@ function readJson(req) {
 }
 
 const PAGE = fs.readFileSync(nodePath.join(__dirname, 'index.html'), 'utf8')
-  .replace('</body>', '<script src="/actions.js"></script>\n</body>');
-const ACTIONS_JS = fs.readFileSync(nodePath.join(__dirname, 'actions.js'), 'utf8');
+  .replace('</body>', '<script src="/clients.js"></script>\n<script src="/actions.js"></script>\n</body>');
+const STATIC_JS = {
+  '/actions.js': fs.readFileSync(nodePath.join(__dirname, 'actions.js'), 'utf8'),
+  '/clients.js': fs.readFileSync(nodePath.join(__dirname, 'clients.js'), 'utf8'),
+};
 
 const ROUTES = {
   '/api/hosts': () => '/v1/hosts',
@@ -175,7 +178,7 @@ http.createServer(async (req, res) => {
     if (req.method !== 'GET') return send(res, 405, { error: 'Methode nicht erlaubt' });
     if (url.pathname === '/health') return send(res, 200, { ok: true });
     if (url.pathname === '/') return send(res, 200, PAGE, 'text/html; charset=utf-8');
-    if (url.pathname === '/actions.js') return send(res, 200, ACTIONS_JS, 'application/javascript; charset=utf-8');
+    if (STATIC_JS[url.pathname]) return send(res, 200, STATIC_JS[url.pathname], 'application/javascript; charset=utf-8');
     if (!url.pathname.startsWith('/api/')) return send(res, 404, { error: 'nicht gefunden' });
     if (!authorized(req)) return send(res, 401, { error: 'Token fehlt oder falsch (Header Authorization: Bearer <TEST_TOKEN>)' });
     if (!KEY) return send(res, 500, { error: 'UNIFI_API_KEY ist nicht gesetzt' });

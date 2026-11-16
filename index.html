@@ -36,6 +36,9 @@ button.tab[aria-pressed="true"]{background:var(--yellow-soft);border-color:var(-
 .tile{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px}
 .tile .l{font-size:12px;line-height:16px;font-weight:500;color:var(--muted)}
 .tile .v{font-size:24px;line-height:30px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:4px}
+.tile.click{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.tile.click:hover{border-color:var(--yellow);background:var(--yellow-soft)}
+.tile.click .l::after{content:" ›";color:var(--yellow-ink)}
 .item .tiles{grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
 .item .tile{padding:10px 12px}
 .item .tile .v{font-size:20px;line-height:26px}
@@ -172,8 +175,12 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
     var map = { online: 'Online', connected: 'Online', offline: 'Offline', disconnected: 'Offline', up: 'Online', down: 'Offline' };
     return map[t] || (s ? String(s) : 'unbekannt');
   }
-  function tile(label, value) {
-    return h('div', { class: 'tile' }, [h('div', { class: 'l', text: label }), h('div', { class: 'v', text: String(value) })]);
+  function tile(label, value, onclick) {
+    var kids = [h('div', { class: 'l', text: label }), h('div', { class: 'v', text: String(value) })];
+    if (!onclick) return h('div', { class: 'tile' }, kids);
+    var b = h('button', { class: 'tile click', type: 'button', title: 'Details anzeigen' }, kids);
+    b.onclick = onclick;
+    return b;
   }
   function kv(rows) {
     var dl = h('dl', { class: 'kv' });
@@ -240,7 +247,11 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
     data.forEach(function (s) {
       var name = pick(s, 'meta.desc', 'meta.name', 'name') || s.siteId;
       var counts = get(s, ['statistics', 'counts']) || {};
-      var tiles = Object.keys(counts).filter(function (k) { return typeof counts[k] === 'number'; }).map(function (k) { return tile(COUNT_LABELS[k] || k, counts[k]); });
+      var DRILL = { wifiClient: ['wireless', 'WLAN-Clients'], wiredClient: ['wired', 'LAN-Clients'], guestClient: ['guest', 'Gast-Clients'] };
+      var tiles = Object.keys(counts).filter(function (k) { return typeof counts[k] === 'number'; }).map(function (k) {
+        var dr = DRILL[k];
+        return tile(COUNT_LABELS[k] || k, counts[k], dr && window.Drill && s.hostId ? function () { window.Drill.open({ hostId: s.hostId, kind: dr[0], title: dr[1] + ' · ' + name }); } : null);
+      });
       var pct = get(s, ['statistics', 'percentages']) || {};
       var isp = get(s, ['statistics', 'ispInfo']) || {};
       var rows = [
@@ -285,7 +296,13 @@ details.tree>div{margin-left:14px;padding-left:12px;border-left:1px solid var(--
           } },
         { label: 'MAC', get: function (d) { return d.mac ? h('span', { class: 'mono', text: String(d.mac) }) : '–'; } },
         { label: 'Rolle', get: function (d) { return d.isConsole ? 'Konsole' : (d.productLine || ''); } },
-        { label: 'Läuft seit', get: function (d) { return d.startupTime ? fmtDate(d.startupTime) : '–'; } }
+        { label: 'Läuft seit', get: function (d) { return d.startupTime ? fmtDate(d.startupTime) : '–'; } },
+        { label: 'Clients', get: function (d) {
+            if (!window.Drill || !g.hostId || !d.mac) return '–';
+            var b = h('button', { type: 'button', text: 'Anzeigen ›' });
+            b.onclick = function () { window.Drill.open({ hostId: g.hostId, kind: 'device', deviceMac: d.mac, title: 'Clients an ' + (d.name || d.model || d.mac) }); };
+            return b;
+          } }
       ], devs));
       box.appendChild(sec);
     });
